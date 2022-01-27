@@ -1,59 +1,54 @@
 import argparse
 import logging
 import os
-import pathlib
 import subprocess
 import re
 import sys
 
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
-from functools import wraps
 from logging.handlers import RotatingFileHandler
-from threading import Lock
 from time import sleep
-
 
 # TODO: Log files are going to the right place on Windows? Mac? Can we test that?
 
-def _delay_wrapper(val):
-    def inner(func):
-        @wraps(func)
-        def decorator(*args, **kwargs):
-            sleep(val)
-            return func(*args, **kwargs)
-
-        return decorator
-
-    return inner
-
-
 def main():
     """ Main function. Builds the Parser for arguments, Logging, and starts Threads """
-    # args = _build_parser()
-    # logger = _build_logger()
-    _read_log()
-    # with ThreadPoolExecutor(max_workers=2) as executor:
-    #     executor.submit(_read_log)
-    #     executor.submit(_monitor_auth, args.lockout, args.timeout)
+    directory = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(directory)
+
+    args = _build_parser()
+    logger = _build_logger()
+
+    while True:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            result = executor.submit(_read_log, args.logfile).result()
+            print(result)
+            executor.submit(_monitor_auth, args.lockout, args.timeout, result)
+            # log_stack.appendleft(executor.submit(_read_log, args.logfile).result())
 
 
-def _read_log():
-    regex_ip = re.compile(r'(^([12])?((?<=2)[0-5]|(?<!2)[0-9])?((?<=25)[0-5]|(?<!25)[0-9])?$)')
-    with open('/var/log/auth.log', 'r') as file:
-        file.seek(0, os.SEEK_END)
-        while True:
-            line = file.readline()
-            if not line:
-                sleep(1)
-                continue
-            yield line
+def _read_log(logfile):
+    def _generator(logfile):
+        with open(f'{logfile}', 'r') as file:
+            file.seek(0, os.SEEK_END)
+            while True:
+                line = file.readline()
+                if not line:
+                    sleep(1)
+                    continue
+                yield line
+    for line in _generator(logfile):
+        return line
 
-        # subprocess.call(f'echo {file} | ')
 
-
-def _monitor_auth(threshold, timeout):
-    pass
-
+def _monitor_auth(threshold, timeout, logs):
+    logs = deque(logs)
+    print(logs)
+    # sleep(1)
+    # print(log_stack)
+    # for line in log_stack:
+    #     print(line.result())
 
 def _build_parser():
     """ Build Parser to accept user-defined arguments """
@@ -63,6 +58,8 @@ def _build_parser():
     parser.add_argument('-t', '--timeout', required=False, type=int, default=True,
                         help="Specify the length of time (minutes) the user will "
                              "be locked out if threshold is met (Optional)")
+    parser.add_argument('-f', '--logfile', required=False, type=str, default='/var/log/auth.log',
+                        help="Specify the log file to monitor for failed SSH Attempts (Defaulted to /var/log/auth.log)")
     args = parser.parse_args()
 
     return args
