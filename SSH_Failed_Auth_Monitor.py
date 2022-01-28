@@ -22,22 +22,25 @@ def main():
 
     while True:
         with ThreadPoolExecutor(max_workers=2) as executor:
-            result = executor.submit(_read_log, args.logfile).result()
-            print(result)
+            result = executor.submit(_read_log, args.logfile, logger).result()
             executor.submit(_monitor_auth, args.lockout, args.timeout, result)
-            # log_stack.appendleft(executor.submit(_read_log, args.logfile).result())
 
 
-def _read_log(logfile):
+def _read_log(logfile, logger):
+    regex_SSH = re.compile(r'sshd.*Failed\spassword')
+    regex_IP = re.compile(r"""\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.)
+                               {3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b""", re.VERBOSE)
     def _generator(logfile):
         with open(f'{logfile}', 'r') as file:
             file.seek(0, os.SEEK_END)
             while True:
                 line = file.readline()
-                if not line:
+                if not regex_SSH.search(line):
                     sleep(1)
                     continue
-                yield line
+                ip = regex_IP.search(line).group()
+                logger.warning(f"Failed SSH Login for IP: {ip}")
+                yield ip
     for line in _generator(logfile):
         return line
 
