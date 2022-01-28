@@ -12,6 +12,19 @@ from time import sleep
 
 # TODO: Log files are going to the right place on Windows? Mac? Can we test that?
 
+
+# Thread 1: Continually parsing through log file. When it finds the log, it will extract the IP address and return 
+# Main Thread: 
+
+class Ip_Node:
+    def __init__(self, ip_address):
+        self.ip_address = ip_address
+        self.failed_logs = 0
+    
+    def increment(self):
+        self.failed_logs += 1
+        
+        
 def main():
     """ Main function. Builds the Parser for arguments, Logging, and starts Threads """
     directory = os.path.dirname(os.path.abspath(__file__))
@@ -22,14 +35,15 @@ def main():
 
     while True:
         with ThreadPoolExecutor(max_workers=2) as executor:
-            result = executor.submit(_read_log, args.logfile, logger).result()
-            executor.submit(_monitor_auth, args.lockout, args.timeout, result)
+            ip_address = executor.submit(_read_log, args.logfile, logger).result()
+            executor.submit(_monitor_auth, args.lockout, args.timeout, ip_address)
 
 
 def _read_log(logfile, logger):
     regex_SSH = re.compile(r'sshd.*Failed\spassword')
     regex_IP = re.compile(r"""\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.)
                                {3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b""", re.VERBOSE)
+
     def _generator(logfile):
         with open(f'{logfile}', 'r') as file:
             file.seek(0, os.SEEK_END)
@@ -41,13 +55,13 @@ def _read_log(logfile, logger):
                 ip = regex_IP.search(line).group()
                 logger.warning(f"Failed SSH Login for IP: {ip}")
                 yield ip
+
     for line in _generator(logfile):
         return line
 
 
-def _monitor_auth(threshold, timeout, logs):
-    logs = deque(logs)
-    print(logs)
+def _monitor_auth(threshold, timeout, ip_address):
+    ip_stack = deque()
     # sleep(1)
     # print(log_stack)
     # for line in log_stack:
