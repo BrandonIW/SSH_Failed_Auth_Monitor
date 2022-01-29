@@ -10,39 +10,60 @@ from concurrent.futures import ThreadPoolExecutor
 from logging.handlers import RotatingFileHandler
 from time import sleep
 
-# TODO: Log files are going to the right place on Windows? Mac? Can we test that?
-
-
-# Thread 1: Continually parsing through log file. When it finds the log, it will extract the IP address and return 
-# Main Thread: 
 
 class Ip_Node:
     def __init__(self, ip_address):
         self.ip_address = ip_address
-        self.failed_logs = 0
-    
+        self.failed_logins = 1
+
+    def __repr__(self):
+        return self.ip_address
+
+    @property
+    def get_failed_logins(self):
+        return self.failed_logins
+
     def increment(self):
-        self.failed_logs += 1
-        
-        
+        self.failed_logins += 1
+
+    def reset(self):
+        self.failed_logins = 0
+
+
 def main():
     """ Main function. Builds the Parser for arguments, Logging, and starts Threads """
-    directory = os.path.dirname(os.path.abspath(__file__))
-    os.chdir(directory)
-
     args = _build_parser()
     logger = _build_logger()
+    ip_queue = deque()
+    failed_ips = []
 
     while True:
         with ThreadPoolExecutor(max_workers=2) as executor:
             ip_address = executor.submit(_read_log, args.logfile, logger).result()
-            executor.submit(_monitor_auth, args.lockout, args.timeout, ip_address)
+            ip_queue.appendleft(ip_address)
+
+        if ip_queue:
+            popped_ip = ip_queue.popleft()
+
+            try:
+                ip_node = list(filter(lambda node: str(node) == popped_ip, failed_ips))[0]
+                ip_node.increment()
+                if ip_node.get_failed_logins >= args.lockout:
+                    _lockout(ip_node, args.lockout, args.timeout)
+                    logger.warning(f"IP Address {ip_node} has been locked out")
+
+            except IndexError:
+                failed_ips.append(Ip_Node(popped_ip))
 
 
 def _read_log(logfile, logger):
+    """ Continual Scanning of log file for any new entries. If new entry matches regex_SSH, extract the IP """
     regex_SSH = re.compile(r'sshd.*Failed\spassword')
-    regex_IP = re.compile(r"""\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.)
-                               {3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b""", re.VERBOSE)
+    regex_IP = re.compile(r"""\b                                             # Assert Boundary
+                              (?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.) # Match single valid octet
+                              {3}                                            # Match previous 3 times
+                              (?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)       # Match final ocetet
+                              \b                                             # Assert another boundary""", re.VERBOSE)
 
     def _generator(logfile):
         with open(f'{logfile}', 'r') as file:
@@ -60,18 +81,15 @@ def _read_log(logfile, logger):
         return line
 
 
-def _monitor_auth(threshold, timeout, ip_address):
-    ip_stack = deque()
-    # sleep(1)
-    # print(log_stack)
-    # for line in log_stack:
-    #     print(line.result())
+def _lockout(ip_address, lockout_threshold, timeout):
+    pass
 
 def _build_parser():
     """ Build Parser to accept user-defined arguments """
     parser = argparse.ArgumentParser(description="SSH Failed Authentication Monitor")
-    parser.add_argument('-l', '--lockout', required=True, type=int, help="Please enter a number for the threshold for "
-                                                                         "failed login attempts")
+    required_args = parser.add_argument_group('Required Arguments')
+    required_args.add_argument('-l', '--lockout', required=True, type=int, help="Please enter a number for the threshold for "
+                                                                                "failed login attempts")
     parser.add_argument('-t', '--timeout', required=False, type=int, default=True,
                         help="Specify the length of time (minutes) the user will "
                              "be locked out if threshold is met (Optional)")
@@ -84,6 +102,9 @@ def _build_parser():
 
 def _build_logger():
     """ Build Logger for the program """
+    directory = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(directory)
+
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
 
