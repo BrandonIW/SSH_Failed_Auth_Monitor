@@ -49,7 +49,7 @@ def main():
                 ip_node = list(filter(lambda node: str(node) == popped_ip, failed_ips))[0]
                 ip_node.increment()
                 if ip_node.get_failed_logins >= args.lockout:
-                    _lockout(ip_node, args.lockout, args.timeout)
+                    _lockout(ip_node)
                     logger.warning(f"IP Address {ip_node} has been locked out")
 
             except IndexError:
@@ -81,8 +81,12 @@ def _read_log(logfile, logger):
         return line
 
 
-def _lockout(ip_address, lockout_threshold, timeout):
-    pass
+def _lockout(ip_address, timeout_reached=False):
+    if timeout_reached:
+        subprocess.run(["iptables", "-D", "INPUT", "-s", f"{ip_address}", "-p", "tcp", "--dport", "22", "-j", "DROP"])
+        return
+    subprocess.run(["iptables", "-A", "INPUT", "-s", f"{ip_address}", "-p", "tcp", "--dport", "22", "-j", "DROP"])
+    
 
 def _build_parser():
     """ Build Parser to accept user-defined arguments """
