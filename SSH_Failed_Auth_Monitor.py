@@ -1,10 +1,11 @@
 import argparse
 import logging
 import os
-import subprocess
 import re
+import subprocess
 import sys
 
+from datetime import datetime, timedelta
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from logging.handlers import RotatingFileHandler
@@ -12,48 +13,61 @@ from time import sleep
 
 
 class Ip_Node:
-    def __init__(self, ip_address):
+    def __init__(self, ip_address, time_added=datetime.now()):
         self.ip_address = ip_address
         self.failed_logins = 1
+        self.time_added = time_added
 
     def __repr__(self):
         return self.ip_address
 
     @property
-    def get_failed_logins(self):
+    def failed_logins(self):
         return self.failed_logins
+
+    @failed_logins.setter
+    def failed_logins(self, value):
+        self.failed_logins = value
+
+    @property
+    def time_added(self):
+        return self.time_added
+
+    @time_added.setter
+    def time_added(self, time):
+        self.time_added = time
 
     def increment(self):
         self.failed_logins += 1
 
-    def reset(self):
-        self.failed_logins = 0
-
 
 def main():
     """ Main function. Builds the Parser for arguments, Logging, and starts Threads """
-    args = _build_parser()
-    logger = _build_logger()
-    ip_queue = deque()
-    failed_ips = []
+    args, logger = _build_parser(), _build_logger()
+    ip_queue, ip_list = deque(), []
+
+    timeout = True if isinstance(args.timeout, int) else False
 
     while True:
         with ThreadPoolExecutor(max_workers=2) as executor:
             ip_address = executor.submit(_read_log, args.logfile, logger).result()
             ip_queue.appendleft(ip_address)
+            executor.submit(_check_timeout, ip_list.copy(), args.timeout)
 
         if ip_queue:
             popped_ip = ip_queue.popleft()
 
             try:
-                ip_node = list(filter(lambda node: str(node) == popped_ip, failed_ips))[0]
+                ip_node = list(filter(lambda node: str(node) == popped_ip, ip_list))[0]
                 ip_node.increment()
-                if ip_node.get_failed_logins >= args.lockout:
+                ip_node.time_added = datetime.now()
+
+                if ip_node.failed_logins == args.lockout:
                     _lockout(ip_node)
                     logger.warning(f"IP Address {ip_node} has been locked out")
 
             except IndexError:
-                failed_ips.append(Ip_Node(popped_ip))
+                ip_list.append(Ip_Node(popped_ip))
 
 
 def _read_log(logfile, logger):
@@ -88,11 +102,18 @@ def _lockout(ip_address, timeout_reached=False):
     subprocess.run(["iptables", "-A", "INPUT", "-s", f"{ip_address}", "-p", "tcp", "--dport", "22", "-j", "DROP"])
 
 
+def _check_timeout(ip_addresses, timeout):
+    for ip_node in ip_addresses:
+        if ip_node.time_added + timedelta(minutes=timeout) < datetime.now():
+            _lockout(ip_node.ip_address, True)
+
+
 def _build_parser():
     """ Build Parser to accept user-defined arguments """
     parser = argparse.ArgumentParser(description="SSH Failed Authentication Monitor")
     required_args = parser.add_argument_group('Required Arguments')
-    required_args.add_argument('-l', '--lockout', required=True, type=int, help="Please enter a number for the threshold for "
+    required_args.add_argument('-l', '--lockout', required=True, type=int, help="Please enter a number for the "
+                                                                                "threshold for "
                                                                                 "failed login attempts")
     parser.add_argument('-t', '--timeout', required=False, type=int, default=True,
                         help="Specify the length of time (minutes) the user will "
