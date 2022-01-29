@@ -86,7 +86,7 @@ def _lockout(ip_address, timeout_reached=False):
         subprocess.run(["iptables", "-D", "INPUT", "-s", f"{ip_address}", "-p", "tcp", "--dport", "22", "-j", "DROP"])
         return
     subprocess.run(["iptables", "-A", "INPUT", "-s", f"{ip_address}", "-p", "tcp", "--dport", "22", "-j", "DROP"])
-    
+
 
 def _build_parser():
     """ Build Parser to accept user-defined arguments """
