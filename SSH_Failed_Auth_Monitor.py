@@ -46,13 +46,13 @@ def main():
     args, logger = _build_parser(), _build_logger()
     ip_queue, ip_list = deque(), []
 
-    timeout = True if isinstance(args.timeout, int) else False
-
     while True:
         with ThreadPoolExecutor(max_workers=2) as executor:
             ip_address = executor.submit(_read_log, args.logfile, logger).result()
             ip_queue.appendleft(ip_address)
-            executor.submit(_check_timeout, ip_list.copy(), args.timeout)
+
+            if isinstance(args.timeout, int):
+                executor.submit(_check_timeout, ip_list.copy(), args.timeout)
 
         if ip_queue:
             popped_ip = ip_queue.popleft()
@@ -106,6 +106,7 @@ def _check_timeout(ip_addresses, timeout):
     for ip_node in ip_addresses:
         if ip_node.time_added + timedelta(minutes=timeout) < datetime.now():
             _lockout(ip_node.ip_address, True)
+            ip_node.failed_logins = 0
 
 
 def _build_parser():
