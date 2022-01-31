@@ -43,10 +43,13 @@ class Ip_Node:
 
     def increment(self):
         self._failed_logins += 1
-    
+
 
 def main():
-    """ Builds a parser to take in arguments, and a logger. Then creates 2 threads to process IPs and checkstimeout """
+    """ Builds a parser to take in arguments, and a logger. Then creates 2 threads, one to continually monitor the
+    logfile in real-time, and one to continually monitor the difference between the timeout (if specified)
+    and the Ip_Node's ._time_added property. Creates a Queue to pass the list of Ip_Nodes that have failed auth. between 
+    threads """
 
     args = _build_parser()
     logger = _build_logger()
@@ -58,7 +61,12 @@ def main():
 
 
 def _process_ips(args, logger, q):
+    """ Continually loops over _read_logs. _read_logs generator will pause until the regex matches, which returns an 
+    IP address. Checks if that IP address is already in our list of known-failed IPs. If so, increment _failed_logins
+    and update that Node's _time_added property. If not, create a new Node for this IP and add to the Queue """
+    
     ip_failed_auth_list = []
+    
     while True:
         ip_address = _read_log(args.logfile, logger)
 
@@ -114,7 +122,13 @@ def _lockout(ip_address, timeout_reached=False):
 
 
 def _check_timeout(timeout, logger, q):
+    """ Continually checks the shared Queue for new IP addresses. Times out after 5 seconds. If a new IP address fails
+    login, it will be passed to this function from _process_ips through the Queue. New IPs are added to a list, which
+    is then continuously looped over to check and see if the timeout threshold has been reached for locked out IPs.
+    If reached, remove the iptable rule and reset that Ip_Node object to 0 _failed_logins """
+    
     ip_failed_auth_list = []
+    
     while True:
         try:
             ip_address = q.get(timeout=5)
@@ -135,7 +149,8 @@ def _check_timeout(timeout, logger, q):
                 ip_node.failed_logins = 0
                 ip_node.is_blocked = False
                 ip_failed_auth_list.remove(ip_node)
-                logger.info(f"Timeout is reached for {ip_node}. Removed IPTABLE rule for {ip_node}")
+                logger.info(f"{timeout} minutes have passed since {ip_node}'s last failed Login."
+                            f"Removing IPTABLE rule for {ip_node}. {ip_node} can now SSH")
 
 
 def _build_parser():
