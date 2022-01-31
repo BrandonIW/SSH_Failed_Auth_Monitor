@@ -7,8 +7,13 @@ This script is highly customizable and can be applied to pretty much any specifi
 
 The broad overview is simply: Monitor Log File for offenders of Something > Act upon that offender > Continuously monitor list of offenders and reverse the action if a timeout is reached
 
-# Quickstart
+# Compatability
+Runs on Python 3.9
+Currently uses IPTABLES for rules, so the server running the Script must be a Unix System.
 
+# Quickstart
+1) Download .ZIP File and extract to a directory of your choice
+2) 
 
 
 # Example Output
