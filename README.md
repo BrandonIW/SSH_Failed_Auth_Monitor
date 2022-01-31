@@ -12,13 +12,13 @@ Runs on Python 3.9
 Currently uses IPTABLES for rules, so the server running the Script must be a Unix System.
 
 ## Options
-* -h  Displays Help Regarding how to run the cmd
+* -h      Displays Help Regarding how to run the cmd
 
-* -l  Required: Integer indicating the number of acceptable failed logins before action is taken
+* -l      Required: Integer indicating the number of acceptable failed logins before action is taken
 
-* -t  Optional: Timelimit (in minutes). The program keeps track of each locked-out-IP's last failed login attempt. If it has been -t minutes since the last failed login, the           IPTABLE rule is removed and the IP's number of failed logins is reset to 0 
+* -t      Optional: Timelimit (in minutes). The program keeps track of each locked-out-IP's last failed login attempt. If it has been -t minutes since the last failed login, the           IPTABLE rule is removed and the IP's number of failed logins is reset to 0 
 
-* -l  Optional: Specify a logfile to monitor. By default, monitors /var/log/auth.log
+* -l      Optional: Specify a logfile to monitor. By default, monitors /var/log/auth.log
 
 ## Quickstart
 1) Download .ZIP File and extract to a directory of your choice
