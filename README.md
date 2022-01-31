@@ -1,2 +1,19 @@
-# SSH_Failed_Auth_Monitor
-Python 3.9 Program that monitors /var/log/auth.log (or a specified log file of your choice) for failed SSH logs. Will write IPTABLE rules to lockout IP addresses once a defined threshold of failed logs is met 
+# What is SSH_Auth_Monitor?
+Program running in Python 3.9 that monitors /var/log/auth.log (or a specified log file of your choice) for specific Regex Patterns indicating failed SSH Logins. This program functions by continuous monitoring of this log file in real-time, and will act by creating an IPTABLE rule blocking failed SSH logs after a pre-determined threshold of Failed Logins attempts. 
+
+The program will also continuously monitor a list of IPs that have previous failed authentication, checking to see if it's been X minutes since last failed login. The IPTABLE rule will be deleted if this condition is specified (by default the IPTABLE rule is indefinite) and met. 
+
+This script is highly customizable and can be applied to pretty much any specific log entry, for any log file, and using different IPTABLE rules for your needs. This can be done by inputting a custom log file location and editing the Regex Patterns the script is looking for, as well as editing the function regarding IPTABLE rule creation. 
+
+The broad overview is simply: Monitor Log File for offenders of Something > Act upon that offender > Continuously monitor list of offenders and reverse the action if a timeout is reached
+
+# Quickstart
+
+
+
+# Example Output
+![image](https://user-images.githubusercontent.com/77559638/151867534-33fc3318-df21-4297-8a7a-df7a83e98b74.png)
+![image](https://user-images.githubusercontent.com/77559638/151867617-4409faf3-0614-4f7e-bd8c-b092345b847c.png)
+![image](https://user-images.githubusercontent.com/77559638/151867645-a87869fd-7458-4da8-9532-41bb13fda312.png)
+
+
