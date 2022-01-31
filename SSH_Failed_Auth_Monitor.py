@@ -1,13 +1,14 @@
 import argparse
+import concurrent.futures
 import logging
 import os
 import re
 import subprocess
 import sys
+import threading
 
-from datetime import datetime, timedelta
-from collections import deque
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
 from time import sleep
 
@@ -45,34 +46,69 @@ class Ip_Node:
 
 
 def main():
-    """ Builds a Parser to accept arguments, and a logger. Creates an empty queue that will hold failed IPs waiting
-     to be processed. Creates an empty list that will host a list of IPs that have failed to Auth. Starts threads
-     to continually monitor the logfile for new entries, and a thread for checking to see if each IP Object has
-     reached their timeout threshold yet (if it exists) """
+    """ HOLY FUCK LOL """
 
     args, logger, ip_list = _build_parser(), _build_logger(), []
 
+    # with ThreadPoolExecutor(max_workers=2) as executor:
+    #     while True:
+    #         thread_timeout = executor.submit(_check_timeout, ip_list, args.timeout)
+    #         _process_ips(args, logger, ip_list)
+
     while True:
-        ip_address = _read_log(args.logfile, logger)
-        try:
-            ip_node = list(filter(lambda node: str(node) == ip_address, ip_list))[0]
-            ip_node.increment()
-            ip_node.time_added = datetime.now()
-            logger.info(f"IP Failed to Login: {ip_node} | Updated Date {datetime.now()} | "
-                        f"Times Failed {ip_node.failed_logins}")
-            if ip_node.failed_logins == args.lockout:
-                _lockout(ip_node)
-                logger.warning(f"IP Address {ip_node} has been locked out")
+        t1 = threading.Thread(target=_check_timeout, args=(ip_list, args.timeout))
+        t2 = threading.Thread(target=_process_ips, args=(args, logger, ip_list))
 
-        except IndexError:
-            ip_list.append(Ip_Node(ip_address))
-            logger.info(f"New IP Added: {ip_address} | Date Added {datetime.now()}")
+        t1.start()
+        t2.start()
 
-        # with ThreadPoolExecutor(max_workers=2) as executor:
-        #     while True:
-        #         executor.submit(_check_timeout, ip_list.copy(), args.timeout)
-        #         executor.submit(_process_ips, args, logger, ip_list.copy())
+        t1.start()
+        sleep(1)
+        # t1.
+        # t1.join()
+        # sleep(2)
+        # t1.start()
+        # t2.start()
+        #
+        # t2.join()
+        # sleep(2)
 
+
+def _process_ips(args, logger, ip_list):
+    print("Fuck this")
+    ip_address = _read_log(args.logfile, logger)
+
+    try:
+        ip_node = list(filter(lambda node: str(node) == ip_address, ip_list))[0]
+        ip_node.increment()
+        ip_node.time_added = datetime.now()
+        logger.info(f"IP Failed to Login: {ip_node} | Updated Date {datetime.now()} | "
+                    f"Times Failed {ip_node.failed_logins}")
+        if ip_node.failed_logins == args.lockout:
+            _lockout(ip_node)
+            logger.error(f"IP Address {ip_node} has been locked out")
+
+    except IndexError:
+        ip_list.append(Ip_Node(ip_address))
+        logger.info(f"New IP Added: {ip_address} | Date Added {datetime.now()}")
+
+
+# WORKING
+# while True:
+#     ip_address = _read_log(args.logfile, logger)
+#     try:
+#         ip_node = list(filter(lambda node: str(node) == ip_address, ip_list))[0]
+#         ip_node.increment()
+#         ip_node.time_added = datetime.now()
+#         logger.info(f"IP Failed to Login: {ip_node} | Updated Date {datetime.now()} | "
+#                     f"Times Failed {ip_node.failed_logins}")
+#         if ip_node.failed_logins == args.lockout:
+#             _lockout(ip_node)
+#             logger.warning(f"IP Address {ip_node} has been locked out")
+#
+#     except IndexError:
+#         ip_list.append(Ip_Node(ip_address))
+#         logger.info(f"New IP Added: {ip_address} | Date Added {datetime.now()}")
 
 def _read_log(logfile, logger):
     """ Continual Scanning of log file for any new entries. If new entry matches regex_SSH, extract the IP """
@@ -82,7 +118,7 @@ def _read_log(logfile, logger):
                                {3}                                            # Match previous 3 times
                                (?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)       # Match final ocetet
                                \b                                             # Assert another boundary""",
-                               re.VERBOSE)
+                          re.VERBOSE)
 
     def _generator(logfile):
         with open(f'{logfile}', 'r') as file:
@@ -108,11 +144,11 @@ def _lockout(ip_address, timeout_reached=False):
 
 
 def _check_timeout(ip_addresses, timeout):
-    sleep(5)
+    print(f"IP: {ip_addresses}")
     for ip_node in ip_addresses:
         if isinstance(timeout, bool):
             return
-        if ip_node.time_added + timedelta(minutes=timeout) < datetime.now():
+        if datetime.now() > (ip_node.time_added + timedelta(minutes=timeout)):
             _lockout(ip_node.ip_address, True)
             ip_node.failed_logins = 0
 
