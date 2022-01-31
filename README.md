@@ -9,6 +9,7 @@ The broad overview is simply: Monitor Log File for offenders of Something > Act 
 
 ## Compatability
 Runs on Python 3.9
+
 Currently uses IPTABLES for rules, so the server running the Script must be a Unix System.
 
 ## Options
