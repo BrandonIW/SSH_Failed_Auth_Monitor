@@ -13,15 +13,7 @@ Currently uses IPTABLES for rules, so the server running the Script must be a Un
 
 # Quickstart
 1) Download .ZIP File and extract to a directory of your choice
-2) <details>
-  <summary>Click to expand!</summary>
-  
-  ## Heading
-  1. A numbered
-  2. list
-     * With some
-     * Sub bullets
-</details>
+2) ```sudo python3 SSH_Auth_Monitor -l [Threshold]```
 
 
 # Example Output
