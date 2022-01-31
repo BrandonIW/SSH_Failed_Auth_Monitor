@@ -12,22 +12,26 @@ Runs on Python 3.9
 Currently uses IPTABLES for rules, so the server running the Script must be a Unix System.
 
 ## Options
--h  Displays Help Regarding how to run the cmd
+1. -h  Displays Help Regarding how to run the cmd
 
--l  Required: Integer indicating the number of acceptable failed logins before action is taken
+2. -l  Required: Integer indicating the number of acceptable failed logins before action is taken
 
--t  Optional: Timelimit (in minutes). The program keeps track of each locked-out-IP's last failed login attempt. If it has been -t minutes since the last failed login, the           IPTABLE rule is removed and the IP's number of failed logins is reset to 0 
+3. -t  Optional: Timelimit (in minutes). The program keeps track of each locked-out-IP's last failed login attempt. If it has been -t minutes since the last failed login, the           IPTABLE rule is removed and the IP's number of failed logins is reset to 0 
 
--l  Optional: Specify a logfile to monitor. By default, monitors /var/log/auth.log
+4. -l  Optional: Specify a logfile to monitor. By default, monitors /var/log/auth.log
 
 ## Quickstart
 1) Download .ZIP File and extract to a directory of your choice
 2) ```sudo python3 SSH_Auth_Monitor -t [Timelimit] -f [logfile] -l [Threshold]```
-3) i.e. ``` sudo python3 SSH_Auth_Monitor -t 5 -l 5 ```
+3) i.e. ``` sudo python3 SSH_Auth_Monitor.py -t 5 -l 5 ```
 
 ### Example Output
 ![image](https://user-images.githubusercontent.com/77559638/151867534-33fc3318-df21-4297-8a7a-df7a83e98b74.png)
+
 ![image](https://user-images.githubusercontent.com/77559638/151867617-4409faf3-0614-4f7e-bd8c-b092345b847c.png)
+
 ![image](https://user-images.githubusercontent.com/77559638/151867645-a87869fd-7458-4da8-9532-41bb13fda312.png)
+
+![image](https://user-images.githubusercontent.com/77559638/151871927-9a8b0749-5aab-43ca-8db6-3dad96e68fe5.png)
 
 
