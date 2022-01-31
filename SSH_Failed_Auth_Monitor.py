@@ -20,6 +20,7 @@ class Ip_Node:
         self.ip_address = ip_address
         self._failed_logins = 1
         self.time_added = _time_added
+        self.is_blocked = False
 
     def __repr__(self):
         return self.ip_address
@@ -42,24 +43,25 @@ class Ip_Node:
 
     def increment(self):
         self._failed_logins += 1
-
+    
 
 def main():
-    """ HOLY FUCK LOL """
+    """ Builds a parser to take in arguments, and a logger. Then creates 2 threads to process IPs and checkstimeout """
 
     args = _build_parser()
     logger = _build_logger()
+    q = queue.Queue()
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        executor.submit(_process_ips, args, logger)
-        executor.submit(_check_timeout, args.timeout)
+        executor.submit(_process_ips, args, logger, q)
+        executor.submit(_check_timeout, args.timeout, logger, q)
 
 
-def _process_ips(args, logger):
+def _process_ips(args, logger, q):
     ip_failed_auth_list = []
-
     while True:
         ip_address = _read_log(args.logfile, logger)
+
         try:
             ip_node = list(filter(lambda node: str(node) == ip_address, ip_failed_auth_list))[0]
             ip_node.increment()
@@ -67,11 +69,14 @@ def _process_ips(args, logger):
             logger.info(f"IP Failed to Login: {ip_node} | Updated Date {datetime.now()} | "
                         f"Times Failed {ip_node.failed_logins}")
             if ip_node.failed_logins == args.lockout:
+                ip_node.is_blocked = True
                 _lockout(ip_node)
                 logger.error(f"IP Address {ip_node} has been locked out")
 
         except IndexError:
-            ip_failed_auth_list.append(Ip_Node(ip_address))
+            new_node = Ip_Node(ip_address)
+            ip_failed_auth_list.append(new_node)
+            q.put(new_node)
             logger.info(f"New IP Added: {ip_address} | Date Added {datetime.now()}")
 
 
@@ -108,15 +113,29 @@ def _lockout(ip_address, timeout_reached=False):
     subprocess.run(["iptables", "-A", "INPUT", "-s", f"{ip_address}", "-p", "tcp", "--dport", "22", "-j", "DROP"])
 
 
-def _check_timeout(timeout):
+def _check_timeout(timeout, logger, q):
+    ip_failed_auth_list = []
     while True:
-        ip_list = get_args_somehow()
-        for ip_node in ip_list:
+        try:
+            ip_address = q.get(timeout=5)
+            ip_failed_auth_list.append(ip_address)
+            logger.info(f"_check_timeout found new IP in Queue {ip_address} |"
+                        f"Added to ip_failed_list {ip_failed_auth_list}")
+
+        except queue.Empty:
+            logger.info(f"_check_timeout has an empty queue")
+
+        for ip_node in ip_failed_auth_list:
             if isinstance(timeout, bool):
-                return
-            if datetime.now() > (ip_node.time_added + timedelta(minutes=timeout)):
+                logger.info(f"Timeout is not set. Default to indefinite IPTABLE rule")
+                break
+
+            if datetime.now() > (ip_node.time_added + timedelta(minutes=timeout) and ip_node.is_blocked):
                 _lockout(ip_node.ip_address, True)
                 ip_node.failed_logins = 0
+                ip_node.is_blocked = False
+                ip_failed_auth_list.remove(ip_node)
+                logger.info(f"Timeout is reached for {ip_node}. Removed IPTABLE rule for {ip_node}")
 
 
 def _build_parser():
