@@ -1,5 +1,5 @@
 # What is SSH_Auth_Monitor?
-Program running in Python 3.9 that monitors /var/log/auth.log (or a specified log file of your choice) for specific Regex Patterns indicating failed SSH Logins. This program functions by continuous monitoring of this log file in real-time, and will act by creating an IPTABLE rule blocking failed SSH logs after a pre-determined threshold of Failed Logins attempts. 
+Program running in Python 3.9 that monitors /var/log/auth.log (or a specified log file of your choice) for specific Regex Patterns indicating failed SSH Logins. This program functions by continuous monitoring of this log file in real-time, and will act by creating an IPTABLE rule blocking failing IP address after a pre-determined threshold of Failed Logins attempts. 
 
 The program will also continuously monitor a list of IPs that have previous failed authentication, checking to see if it's been X minutes since last failed login. The IPTABLE rule will be deleted if this condition is specified (by default the IPTABLE rule is indefinite) and met. 
 
