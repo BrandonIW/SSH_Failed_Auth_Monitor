@@ -133,18 +133,17 @@ def _check_timeout(timeout, logger, q):
         try:
             ip_address = q.get(timeout=5)
             ip_failed_auth_list.append(ip_address)
-            logger.info(f"_check_timeout found new IP in Queue {ip_address} |"
+            logger.info(f"New IP found in Queue: {ip_address} |"
                         f"Added to ip_failed_list {ip_failed_auth_list}")
 
         except queue.Empty:
-            logger.info(f"_check_timeout has an empty queue")
+            logger.info(f"Queue is Empty. No new IP Addresses have failed Authentication")
 
         for ip_node in ip_failed_auth_list:
             if isinstance(timeout, bool):
-                logger.info(f"Timeout is not set. Default to indefinite IPTABLE rule")
                 break
 
-            if datetime.now() > (ip_node.time_added + timedelta(minutes=timeout) and ip_node.is_blocked):
+            if datetime.now() > (ip_node.time_added + timedelta(minutes=timeout)) and ip_node.is_blocked:
                 _lockout(ip_node.ip_address, True)
                 ip_node.failed_logins = 0
                 ip_node.is_blocked = False
@@ -157,16 +156,17 @@ def _build_parser():
     """ Build Parser to accept user-defined arguments """
     parser = argparse.ArgumentParser(description="SSH Failed Authentication Monitor")
     required_args = parser.add_argument_group('Required Arguments')
-    required_args.add_argument('-l', '--lockout', required=True, type=int, help="Please enter a number for the "
-                                                                                "threshold for "
-                                                                                "failed login attempts")
-    parser.add_argument('-t', '--timeout', required=False, type=int, default=True,
+    required_args.add_argument('-l', '--lockout', required=True, type=check_positive, help="Please enter a number "
+                                                                                           "for the "
+                                                                                           "threshold for "
+                                                                                           "failed login attempts")
+    parser.add_argument('-t', '--timeout', required=False, type=check_positive, default=True,
                         help="Specify the length of time (minutes) the user will "
                              "be locked out if threshold is met (Optional)")
-    parser.add_argument('-f', '--logfile', required=False, type=str, default='/var/log/auth.log',
+    parser.add_argument('-f', '--logfile', required=False, type=check_log_file, default='/var/log/auth.log',
                         help="Specify the log file to monitor for failed SSH Attempts (Defaulted to /var/log/auth.log)")
     args = parser.parse_args()
-
+    print(f"Parameters Inputted: Timeout = {args.timeout}, Lockout Threshold = {args.lockout}, Logfile = {args.logfile}")
     return args
 
 
@@ -196,6 +196,21 @@ def _build_logger():
         handler.setFormatter(formatter)
 
     return logger
+
+
+def check_positive(num):
+    try:
+        ivalue = int(num)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{num} is not an integer. Argument must be a positive Integer")
+    if ivalue < 0:
+        raise argparse.ArgumentTypeError(f"{num} is a negative number. Must be positive")
+    return ivalue
+
+def check_log_file(logfile):
+    if os.path.isfile(logfile):
+        return logfile
+    raise argparse.ArgumentTypeError(f"{logfile} cannot be found. Please try a different logfile")
 
 
 if __name__ == '__main__':
