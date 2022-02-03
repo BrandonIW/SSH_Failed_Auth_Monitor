@@ -86,6 +86,10 @@ def _process_ips(args, logger, q):
             ip_failed_auth_list.append(new_node)
             q.put(new_node)
             logger.info(f"New IP Added: {ip_address} | Date Added {datetime.now()}")
+            if args.lockout == 1:
+                new_node.is_blocked = True
+                _lockout(new_node)
+                logger.error(f"IP Address {new_node} has been locked out")
 
 
 def _read_log(logfile, logger):
@@ -147,7 +151,6 @@ def _check_timeout(timeout, logger, q):
                 _lockout(ip_node.ip_address, True)
                 ip_node.failed_logins = 0
                 ip_node.is_blocked = False
-                ip_failed_auth_list.remove(ip_node)
                 logger.info(f"{timeout} minutes have passed since {ip_node}'s last failed Login."
                             f"Removing IPTABLE rule for {ip_node}. {ip_node} can now SSH")
 
